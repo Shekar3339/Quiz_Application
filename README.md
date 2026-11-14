@@ -1,6 +1,6 @@
 # Online Quiz Application
 
-A MERN foundation for a team-built online quiz application. The repository keeps the React client and Express API in separate folders so each module can be developed and run independently.
+A React and Express application for creating and managing quizzes. The client and API are separate applications; quiz data is persisted in MongoDB.
 
 ## Requirements
 
@@ -12,7 +12,6 @@ A MERN foundation for a team-built online quiz application. The repository keeps
 
 ```text
 client/
-  index.html
   src/
     App.jsx
     main.jsx
@@ -20,14 +19,16 @@ client/
   package.json
   vite.config.js
 server/
-  .env.example
   src/
     app.js
-    config/
-      db.js
+    config/db.js
+    models/quiz.model.js
     routes/
       health.routes.js
+      quiz.routes.js
+    validation/quiz.validation.js
     server.js
+  test/quiz.routes.test.js
   package.json
 ```
 
@@ -46,7 +47,7 @@ server/
 
 ## Run
 
-Open two terminals from the repository root.
+Open two terminals from the project root.
 
 Start the API:
 
@@ -62,16 +63,48 @@ cd client
 npm run dev
 ```
 
-Vite prints the client URL (usually `http://localhost:5173`). The Express server listens on port `5000` by default; both values can be changed through the server environment variables.
+Vite prints the client URL (usually `http://localhost:5173`). The Express server listens on port `5000` by default. Set `VITE_API_URL` in the client environment to change the API base URL (default `http://localhost:5000/api`).
 
 ## Verify
 
-- Open the Vite URL in a browser to see the React home page.
-- Request `http://localhost:5000/api/health` in a browser or run `Invoke-RestMethod http://localhost:5000/api/health` in PowerShell. A successful response contains `"status": "ok"`.
+- Run API tests with `cd server; npm test`.
+- Build the client with `cd client; npm run build`.
+- Open the Vite URL to create and manage quizzes.
+- Request `http://localhost:5000/api/health`; a successful response contains `"status": "ok"`.
 - The server connects to MongoDB before it starts listening. If the connection fails, check `MONGODB_URI` and that MongoDB is available.
 
-## Current scope
+## Quiz and question API
 
-This is only the shared project foundation: MongoDB connection setup, environment configuration, CORS/JSON middleware, an API health check, and a React landing page. Authentication, quiz management, attempts, scoring, and results are intentionally left for the team modules.
+All routes are prefixed with `/api/quizzes`. JSON validation errors return `400` with `{ "error": "..." }`; missing quiz/question IDs return `404`.
 
-Passwords should be hashed with bcrypt, JWT secrets must come from the environment, and correct quiz answers must remain on the server when those modules are implemented. Validate request data at each API boundary.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/quizzes` | List quizzes, including question counts |
+| `POST` | `/api/quizzes` | Create a quiz |
+| `GET` | `/api/quizzes/:quizId` | Get quiz details and ordered questions |
+| `PATCH` | `/api/quizzes/:quizId` | Update title and/or description |
+| `DELETE` | `/api/quizzes/:quizId` | Delete a quiz and its embedded questions |
+| `POST` | `/api/quizzes/:quizId/questions` | Add a question |
+| `PATCH` | `/api/quizzes/:quizId/questions/:questionId` | Update a question |
+| `DELETE` | `/api/quizzes/:quizId/questions/:questionId` | Delete a question |
+| `PUT` | `/api/quizzes/:quizId/questions/order` | Reorder all questions |
+
+Create a quiz with `title` (required, 1–120 characters), optional `description` (up to 2,000 characters), and `ownerId` when unauthenticated. A question requires `prompt` (1–500 characters), 2–6 non-empty `options` (up to 200 characters each), and an integer `correctOptionIndex` pointing to one of those options. Quiz question ordering is represented by `position`; reorder requests must provide every stable question ID exactly once:
+
+```json
+{
+  "questionIds": ["68e000000000000000000001", "68e000000000000000000002"]
+}
+```
+
+MongoDB ObjectIds are the stable quiz (`id`) and question (`id`) identifiers. Questions are embedded in their quiz document, each with its own stable ObjectId. The quiz model stores `ownerId`, timestamps, question positions, options, and `correctOptionIndex`.
+
+Quiz list/detail and question mutation responses intentionally omit `correctOptionIndex`. It is stored and validated by the API for scoring/attempts integration, but is not included in the quiz data presented to clients. Editing an existing question may omit `correctOptionIndex` to preserve the current answer; if options change, the API keeps the answer mapped to the same option text when that text is still unique, and otherwise requires an explicit new index. Attempts/scoring should resolve quiz and question IDs on the server and compare submitted choices against the stored index; never accept an answer key from an attempt request.
+
+## Authentication and ownership integration
+
+Authentication is not implemented yet. For now, the browser creates a local `ownerId` in local storage and sends it when creating quizzes; it is only an identifier, not proof of identity. As a result, unauthenticated endpoints are suitable for local development only and do not provide access control.
+
+When authentication is added, its middleware must set `req.user.id` (or `req.user._id`) to the authenticated user ID before the quiz router. The API then derives the owner on quiz creation and rejects attempts to create/update/delete a quiz owned by another authenticated user. Keep the local `ownerId` fallback only for unauthenticated development, or remove it when all clients are authenticated. Protect every quiz-management route with the authentication middleware before deployment.
+
+Passwords should be hashed with bcrypt, JWT secrets must come from the environment, and request data must be validated at each API boundary.
