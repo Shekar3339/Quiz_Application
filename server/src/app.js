@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import authRouter from './routes/auth.routes.js';
 import healthRouter from './routes/health.routes.js';
+import quizRouter from './routes/quiz.routes.js';
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 app.use('/api/health', healthRouter);
+app.use('/api/quizzes', quizRouter);
 app.use('/api/auth', authRouter);
 
 app.use((error, _request, response, next) => {
