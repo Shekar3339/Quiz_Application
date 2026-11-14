@@ -14,28 +14,52 @@ A React and Express application for creating and managing quizzes. The client an
 client/
   src/
     App.jsx
+    components/
+      AppNavbar.jsx
+    context/
+      AuthContext.jsx
     main.jsx
+    pages/
+      DashboardPage.jsx
+      LoginPage.jsx
+      ProfilePage.jsx
+      RegisterPage.jsx
+    services/
+      api.js
     styles.css
   package.json
   vite.config.js
 server/
   src/
     app.js
-    config/db.js
-    models/quiz.model.js
-    routes/
-      health.routes.js
-      quiz.routes.js
-    validation/quiz.validation.js
-    server.js
+server/src/
+  config/
+    auth.js
+    db.js
+  controllers/
+    auth.controller.js
+  middleware/
+    requireAuth.js
+  models/
+    User.js
+    quiz.model.js
+  routes/
+    auth.routes.js
+    health.routes.js
+    quiz.routes.js
+  validation/
+    quiz.validation.js
+  server.js
   test/quiz.routes.test.js
+  test/
+    auth.integration.test.js
   package.json
 ```
 
 ## Setup
 
 1. Copy `server/.env.example` to `server/.env`.
-2. Set `MONGODB_URI` to your MongoDB connection string and replace `JWT_SECRET` with a long, random secret. Do not commit `server/.env`.
+2. Set `MONGODB_URI` to your MongoDB connection string. Set `JWT_SECRET` to a random secret of at least 32 bytes; generate one locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`. Do not commit `server/.env` or share the generated secret.
 3. Install dependencies in each application:
 
    ```powershell
@@ -71,7 +95,10 @@ Vite prints the client URL (usually `http://localhost:5173`). The Express server
 - Build the client with `cd client; npm run build`.
 - Open the Vite URL to create and manage quizzes.
 - Request `http://localhost:5000/api/health`; a successful response contains `"status": "ok"`.
+- Open the Vite URL to access registration, login, dashboard, and profile pages.
+- Request `http://localhost:5000/api/health` in a browser or run `Invoke-RestMethod http://localhost:5000/api/health` in PowerShell. A successful response contains `"status": "ok"`.
 - The server connects to MongoDB before it starts listening. If the connection fails, check `MONGODB_URI` and that MongoDB is available.
+- Run the authentication integration checks with `cd server; npm run test:integration`. The tests use the configured MongoDB database and remove their uniquely generated test account afterward.
 
 ## Quiz and question API
 
@@ -108,3 +135,13 @@ Authentication is not implemented yet. For now, the browser creates a local `own
 When authentication is added, its middleware must set `req.user.id` (or `req.user._id`) to the authenticated user ID before the quiz router. The API then derives the owner on quiz creation and rejects attempts to create/update/delete a quiz owned by another authenticated user. Keep the local `ownerId` fallback only for unauthenticated development, or remove it when all clients are authenticated. Protect every quiz-management route with the authentication middleware before deployment.
 
 Passwords should be hashed with bcrypt, JWT secrets must come from the environment, and request data must be validated at each API boundary.
+## Authentication API
+
+- `POST /api/auth/register` — create an account with `{ "name", "email", "password" }`.
+- `POST /api/auth/login` — authenticate with `{ "email", "password" }`.
+- `POST /api/auth/logout` — clear the authentication cookie.
+- `GET /api/auth/profile` — return the signed-in user's safe profile; requires the HttpOnly JWT cookie.
+
+Passwords are hashed with bcrypt and excluded from normal database projections. JWTs are stored in HttpOnly cookies; the client sends cookies with API requests. The server requires `JWT_SECRET` to be at least 32 bytes.
+
+The dashboard currently expects Member 2's `GET /api/quizzes` response to contain `{ "quizzes": [] }`, and Member 3's `GET /api/attempts/mine` response to contain `{ "attempts": [], "totalAttempts": 0, "averageScore": 0 }`. Attempts may include `quizTitle`, `completedAt`, `percentage`, or `score` and `maxScore`. It displays clear loading, empty, or unavailable states until those teammate endpoints are connected. Quiz and attempt APIs remain owned by Members 2 and 3.
