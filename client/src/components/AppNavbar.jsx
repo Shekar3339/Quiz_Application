@@ -55,6 +55,13 @@ export function AppNavbar() {
               >
                 Dashboard
               </NavLink>
+              <NavLink
+                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                to="/attempt-history"
+                onClick={closeMenu}
+              >
+                My attempts
+              </NavLink>
               <Link
                 className="nav-link"
                 to="/dashboard#available-quizzes"

@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import authRouter from './routes/auth.routes.js';
+import attemptRouter from './routes/attempt.routes.js';
 import healthRouter from './routes/health.routes.js';
 import quizRouter from './routes/quiz.routes.js';
 
@@ -17,6 +18,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use('/api/health', healthRouter);
 app.use('/api/quizzes', quizRouter);
+app.use('/api/attempts', attemptRouter);
 app.use('/api/auth', authRouter);
 
 app.use((error, _request, response, next) => {
