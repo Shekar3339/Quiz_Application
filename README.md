@@ -130,9 +130,7 @@ Quiz list/detail and question mutation responses intentionally omit `correctOpti
 
 ## Authentication and ownership integration
 
-Authentication is not implemented yet. For now, the browser creates a local `ownerId` in local storage and sends it when creating quizzes; it is only an identifier, not proof of identity. As a result, unauthenticated endpoints are suitable for local development only and do not provide access control.
-
-When authentication is added, its middleware must set `req.user.id` (or `req.user._id`) to the authenticated user ID before the quiz router. The API then derives the owner on quiz creation and rejects attempts to create/update/delete a quiz owned by another authenticated user. Keep the local `ownerId` fallback only for unauthenticated development, or remove it when all clients are authenticated. Protect every quiz-management route with the authentication middleware before deployment.
+Authentication is implemented with an HttpOnly JWT cookie and `requireAuth` middleware. Attempt APIs apply this middleware and scope every read/write to the signed-in user. The quiz CRUD router is currently mounted without `requireAuth`; its ownership checks only run when `req.user` is present. Keep quiz management endpoints for local development unless/until the quiz module is updated to protect them at the API layer.
 
 Passwords should be hashed with bcrypt, JWT secrets must come from the environment, and request data must be validated at each API boundary.
 ## Authentication API
@@ -144,4 +142,4 @@ Passwords should be hashed with bcrypt, JWT secrets must come from the environme
 
 Passwords are hashed with bcrypt and excluded from normal database projections. JWTs are stored in HttpOnly cookies; the client sends cookies with API requests. The server requires `JWT_SECRET` to be at least 32 bytes.
 
-The dashboard currently expects Member 2's `GET /api/quizzes` response to contain `{ "quizzes": [] }`, and Member 3's `GET /api/attempts/mine` response to contain `{ "attempts": [], "totalAttempts": 0, "averageScore": 0 }`. Attempts may include `quizTitle`, `completedAt`, `percentage`, or `score` and `maxScore`. It displays clear loading, empty, or unavailable states until those teammate endpoints are connected. Quiz and attempt APIs remain owned by Members 2 and 3.
+The dashboard reads the existing quiz list (`GET /api/quizzes`, returned as an array) and the authenticated attempt summary (`GET /api/attempts/mine`). Quiz cards link to the quiz-taking flow, and recent attempts link to a result or a resumed attempt. See [Member 3 module documentation](MEMBER3_MODULE_DOCUMENTATION.md) for the attempt schema, API request formats, scoring, timer, and limitations.

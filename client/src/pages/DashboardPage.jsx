@@ -23,11 +23,12 @@ function DashboardPage() {
 
     apiRequest('/quizzes')
       .then((result) => {
-        if (!Array.isArray(result?.quizzes)) {
+        const quizList = Array.isArray(result) ? result : result?.quizzes;
+        if (!Array.isArray(quizList)) {
           throw new Error('Quiz service returned an unexpected response.');
         }
         if (active) {
-          setQuizzes({ data: result.quizzes, error: '', loading: false });
+          setQuizzes({ data: quizList, error: '', loading: false });
         }
       })
       .catch((error) => {
@@ -90,6 +91,9 @@ function DashboardPage() {
           <h1 className="display-6 fw-bold mt-2 mb-2">Welcome back, {user.name}!</h1>
           <p className="text-secondary mb-0">A little progress each day adds up.</p>
         </div>
+        <Link className="btn btn-primary px-4" to="/attempt-history">
+          Attempt history
+        </Link>
         <Link className="btn btn-primary px-4" to="/dashboard#available-quizzes">
           Explore quizzes
         </Link>
@@ -153,6 +157,10 @@ function DashboardPage() {
                   <p className="text-secondary mb-0">
                     {quiz.description || 'Explore this quiz and put your knowledge to the test.'}
                   </p>
+                  <div className="quiz-card-footer mt-3">
+                    <span>{quiz.questionCount ?? quiz.questions?.length ?? 0} questions</span>
+                    <Link className="btn btn-sm btn-primary" to={`/quizzes/${quiz.id || quiz._id}`}>Start quiz</Link>
+                  </div>
                 </article>
               </div>
             ))}
@@ -194,7 +202,7 @@ function DashboardPage() {
                         ? new Date(attempt.completedAt).toLocaleDateString()
                         : '—'}
                     </td>
-                    <td className="text-end fw-bold">{displayScore(attempt)}</td>
+                    <td className="text-end fw-bold"><Link to={attempt.status === 'in_progress' ? `/quizzes/${attempt.quizId}` : `/results/${attempt.id || attempt._id}`}>{displayScore(attempt)}</Link></td>
                   </tr>
                 ))}
               </tbody>
